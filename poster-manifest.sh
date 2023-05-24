@@ -3,8 +3,8 @@ exec 5>&1
 # Requirement Download the sshpass in ubuntu: sudo apt update && sudo apt install sshpass -y
 #Created Variable to SSH into the Swarm Master and get the details 
 USER="administrator"
-MASTER_SWARM_IP="10.50.11.51"
-PASSWORD="Admin01!"
+MASTER_SWARM_IP=""
+PASSWORD=""
 
 #Created these variable to confirm the Files are created or not
 folder_path="/mnt/fsvol0/poster-arts/manifest"
