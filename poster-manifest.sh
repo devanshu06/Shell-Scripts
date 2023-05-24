@@ -1,10 +1,12 @@
 #!/bin/bash
 exec 5>&1
 # Requirement Download the sshpass in ubuntu: sudo apt update && sudo apt install sshpass -y
+#Created Variable to SSH into the Swarm Master and get the details 
 USER="administrator"
-MASTER_SWARM_IP="<Change-me>"
-PASSWORD="<Change-me>"
+MASTER_SWARM_IP="10.50.11.51"
+PASSWORD="Admin01!"
 
+#Created these variable to confirm the Files are created or not
 folder_path="/mnt/fsvol0/poster-arts/manifest"
 current_date=$(sshpass -p "${PASSWORD}" ssh -o StrictHostKeyChecking=no "${USER}"@"${MASTER_SWARM_IP}" "date +%Y-%m-%d")
 
@@ -38,8 +40,10 @@ MANIFESTS=(
     "node ./commands.js createManifest farmerssc --type back-splash --assetType LIVE --selectionType primary --aspectRatio 16:9"
     )
 
+#Files are mapped with the above commands if you change the command then change the files also with the approriate name and path 
 FILES=(
-    "$folder_path/ccap_channel_logo.json"
+    "$folder_path/test.json"
+    # "$folder_path/ccap_channel_logo.json"
     "$folder_path/nwtel_channel_logo.json"
     "$folder_path/ccap_LIVE_primary_back-splash_16:9.json"
     "$folder_path/ccap_VOD_back-splash_16:9.json"
@@ -52,24 +56,26 @@ FILES=(
     "$folder_path/ozarksgo_LIVE_primary_back-splash_16:9.json"
     "$folder_path/farmerssc_LIVE_primary_back-splash_16:9.json"
 )
-counter=0
+
+# Added the varibales to get the details in for loop and able to execute the conditions
+counter=0 
 error=0
-failed_values=()
+failed_values=() #adding the error commands in this variable to get the exact commands that don't run successfully
 
 for operators in "${MANIFESTS[@]}"; do
     echo "==================================================================================="
     echo "Running the Command: ${operators}"
     RESPONE=$(sshpass -p "${PASSWORD}" ssh -o StrictHostKeyChecking=no "${USER}"@"${NODE_IP}" "docker exec ${CONTAINER_ID} ${operators}" | tee /dev/fd/5)
-    # echo "${RESPONSE}"
     last_modified=$(sshpass -p "${PASSWORD}" ssh -o StrictHostKeyChecking=no "${USER}"@"${MASTER_SWARM_IP}" "date -r "${FILES[$counter]}" +%Y-%m-%d")
     file_size=$(sshpass -p "${PASSWORD}" ssh -o StrictHostKeyChecking=no "${USER}"@"${MASTER_SWARM_IP}" " du -sh "${FILES[$counter]}" | awk '{print \$1}'")
     echo "The file ${FILES[$counter]} was last modified on: ${last_modified}"
     echo "Checking File Modification Date and File Size"
     # Compare the last modified date with the current date
     if [ "$last_modified" != "$current_date" ] || [ "$file_size" == 0 ]; then
-        echo "The file '${FILES[$counter]}' has not been updated today."
+        echo "The file '${FILES[$counter]}' has not been updated today or the file size is not appropriate."
         echo "${FILES[$counter]} Size: ${file_size}"
         failed_values+=("$operators")
+        ((counter++))
         ((error++))
     else
         echo "${FILES[$counter]} Size: ${file_size}"
