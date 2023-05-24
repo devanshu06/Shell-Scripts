@@ -2,8 +2,11 @@
 exec 5>&1
 # Requirement Download the sshpass in ubuntu: sudo apt update && sudo apt install sshpass -y
 USER="administrator"
-MASTER_SWARM_IP="10.50.11.51"
-PASSWORD="Admin01!"
+MASTER_SWARM_IP="<Change-me>"
+PASSWORD="<Change-me>"
+
+folder_path="/mnt/fsvol0/poster-arts/manifest"
+current_date=$(sshpass -p "${PASSWORD}" ssh -o StrictHostKeyChecking=no "${USER}"@"${MASTER_SWARM_IP}" "date +%Y-%m-%d")
 
 echo "Fetching the Node Name..." 
 NODE_NAME=$(sshpass -p "${PASSWORD}" ssh -o StrictHostKeyChecking=no "${USER}"@"${MASTER_SWARM_IP}" "docker service ps tv2-poster-arts-v2-prod_poster-manifest | grep Runn | awk '{print \$4}'")
@@ -21,32 +24,68 @@ echo "ContainerID: ${CONTAINER_ID}"
 
 #Manifests Running Code Below:
 MANIFESTS=(
-    "node ./commands.js createManifest nwtel --type back-splash --assetType LIVE --selectionType primary --aspectRatio 16:9"
+    "node ./commands.js createManifest ccap --type logo"
+    "node ./commands.js createManifest nwtel --type logo"
     "node ./commands.js createManifest ccap --type back-splash --assetType LIVE --selectionType primary --aspectRatio 16:9"
-    "node ./commands.js createManifest ozarksgo --type back-splash --assetType LIVE --selectionType primary --aspectRatio 16:9"
-    "node ./commands.js createManifest farmerssc --type back-splash --assetType LIVE --selectionType primary --aspectRatio 16:9"
     "node ./commands.js createManifest ccap --type back-splash --assetType VOD  --aspectRatio 16:9"
     "node ./commands.js createManifest ccap --type poster --assetType VOD --aspectRatio 2:3"
-    ) 
+    "node ./commands.js createManifest ccap --type genre"
+    "node ./commands.js createManifest nwtel --type back-splash --assetType LIVE --selectionType primary --aspectRatio 16:9"
+    "node ./commands.js createManifest nwtel --type back-splash --assetType VOD  --aspectRatio 16:9"
+    "node ./commands.js createManifest nwtel --type poster --assetType VOD --aspectRatio 2:3"
+    "node ./commands.js createManifest nwtel --type genre"
+    "node ./commands.js createManifest ozarksgo --type back-splash --assetType LIVE --selectionType primary --aspectRatio 16:9"
+    "node ./commands.js createManifest farmerssc --type back-splash --assetType LIVE --selectionType primary --aspectRatio 16:9"
+    )
+
+FILES=(
+    "$folder_path/ccap_channel_logo.json"
+    "$folder_path/nwtel_channel_logo.json"
+    "$folder_path/ccap_LIVE_primary_back-splash_16:9.json"
+    "$folder_path/ccap_VOD_back-splash_16:9.json"
+    "$folder_path/ccap_VOD_poster_2:3.json"
+    "$folder_path/ccap_LIVE_genre.json"
+    "$folder_path/nwtel_LIVE_primary_back-splash_16:9.json"
+    "$folder_path/nwtel_VOD_back-splash_16:9.json"
+    "$folder_path/nwtel_VOD_poster_2:3.json"
+    "$folder_path/nwtel_LIVE_genre.json"
+    "$folder_path/ozarksgo_LIVE_primary_back-splash_16:9.json"
+    "$folder_path/farmerssc_LIVE_primary_back-splash_16:9.json"
+)
+counter=0
+error=0
+failed_values=()
 
 for operators in "${MANIFESTS[@]}"; do
+    echo "==================================================================================="
     echo "Running the Command: ${operators}"
-    RESPONSE=$(sshpass -p "${PASSWORD}" ssh -o StrictHostKeyChecking=no "${USER}"@"${NODE_IP}" "docker exec ${CONTAINER_ID} ${operators}" | tee /dev/fd/5)
-    echo "${RESPONSE}" 
-    echo "Command ran successfully: ${operators}" 
+    RESPONE=$(sshpass -p "${PASSWORD}" ssh -o StrictHostKeyChecking=no "${USER}"@"${NODE_IP}" "docker exec ${CONTAINER_ID} ${operators}" | tee /dev/fd/5)
+    # echo "${RESPONSE}"
+    last_modified=$(sshpass -p "${PASSWORD}" ssh -o StrictHostKeyChecking=no "${USER}"@"${MASTER_SWARM_IP}" "date -r "${FILES[$counter]}" +%Y-%m-%d")
+    file_size=$(sshpass -p "${PASSWORD}" ssh -o StrictHostKeyChecking=no "${USER}"@"${MASTER_SWARM_IP}" " du -sh "${FILES[$counter]}" | awk '{print \$1}'")
+    echo "The file ${FILES[$counter]} was last modified on: ${last_modified}"
+    echo "Checking File Modification Date and File Size"
+    # Compare the last modified date with the current date
+    if [ "$last_modified" != "$current_date" ] || [ "$file_size" == 0 ]; then
+        echo "The file '${FILES[$counter]}' has not been updated today."
+        echo "${FILES[$counter]} Size: ${file_size}"
+        failed_values+=("$operators")
+        ((error++))
+    else
+        echo "${FILES[$counter]} Size: ${file_size}"
+        echo "Command ran successfully: ${operators}" 
+        echo "File Created: ${FILES[$counter]}"
+        echo "==================================================================================="
+        ((counter++))
+    fi
 done
 
-
-
-# echo "All commands completed"
-
-#     if [ $? -eq 0 ]; then
-#         echo "${RESPONSE}"
-#         echo "Command ran successfully: ${operator}"
-#     else
-#         echo "Command failed: ${operator}"
-#         echo "Check You VPN Connection It maybe down"
-#         echo "Retrying command: ${operator}"
-#         RESPONSE=$(sshpass -p "${PASSWORD}" ssh -o StrictHostKeyChecking=no "${USER}"@"${NODE_IP}" "docker exec ${CONTAINER_ID} ${operator}" | tee /dev/fd/5)
-#     fi
-# done
+if [ $error -gt 0 ]; then
+	echo "Number of failed Commands: $error"
+    #echo "Failed commands: ${failed_values[@]}"
+    echo "Failed Commands:"
+    for value in "${failed_values[@]}"; do
+        echo "$value"
+    done
+    exit 1
+fi
